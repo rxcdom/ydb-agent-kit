@@ -142,7 +142,29 @@ def test_whole_block_matches_the_documented_format():
             "- this year: 2026-01-01 — 2026-09-17",
             "- default window when no period is named: 2026-08-19 — 2026-09-17",
             '- "all time": call without dates',
+            "Upcoming days, for deadlines:",
+            "- tomorrow: 2026-09-18",
+            "- next week (Mon–Sun): 2026-09-21 — 2026-09-27",
+            "- next month: 2026-10-01 — 2026-10-31",
+            "- the next 14 days: Fri 2026-09-18, Sat 2026-09-19, Sun 2026-09-20, Mon 2026-09-21, "
+            "Tue 2026-09-22, Wed 2026-09-23, Thu 2026-09-24, Fri 2026-09-25, Sat 2026-09-26, "
+            "Sun 2026-09-27, Mon 2026-09-28, Tue 2026-09-29, Wed 2026-09-30, Thu 2026-10-01",
         ]
     )
 
     assert CalendarBlockRenderer.render(instant, BERLIN) == expected
+
+
+def test_upcoming_periods_cross_the_year_boundary():
+    block = CalendarBlockRenderer.render(datetime(2026, 12, 30, 9, 0, tzinfo=timezone.utc), UTC)
+
+    assert "- tomorrow: 2026-12-31" in block
+    assert "- next week (Mon–Sun): 2027-01-04 — 2027-01-10" in block
+    assert "- next month: 2027-01-01 — 2027-01-31" in block
+    assert "Thu 2026-12-31, Fri 2027-01-01" in block
+
+
+def test_next_month_has_the_right_length_after_a_long_month():
+    block = CalendarBlockRenderer.render(datetime(2027, 1, 31, 9, 0, tzinfo=timezone.utc), UTC)
+
+    assert "- next month: 2027-02-01 — 2027-02-28" in block

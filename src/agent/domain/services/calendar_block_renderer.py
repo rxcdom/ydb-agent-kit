@@ -13,7 +13,10 @@ Conventions:
 * "this month" and "this year" run from their first day to today;
 * "last month" is the previous calendar month;
 * the default window, used when the user names no period, is the last 30 days;
-* both bounds are inclusive, and days are days of the configured time zone.
+* both bounds are inclusive, and days are days of the configured time zone;
+* deadlines lie in the future, so the block also lists tomorrow, the next
+  calendar week and month, and every one of the coming days with its weekday:
+  "next Friday" or "a week from today" is then a lookup, not a calculation.
 
 The block does not carry the bounds of the user's own data. Those are per-user
 and arrive with every tool result as its coverage.
@@ -31,6 +34,13 @@ def _iso(day: date) -> str:
 
 def _span(date_from: date, date_to: date) -> str:
     return f"{_iso(date_from)} — {_iso(date_to)}"
+
+
+def _first_day_of_next_month(day: date) -> date:
+    return (day.replace(day=1) + timedelta(days=32)).replace(day=1)
+
+
+UPCOMING_DAYS_LISTED = 14
 
 
 class CalendarBlockRenderer:
@@ -61,6 +71,14 @@ class CalendarBlockRenderer:
         last_30_from = today - timedelta(days=29)
         this_year_from = today.replace(month=1, day=1)
 
+        tomorrow = today + timedelta(days=1)
+        next_week_from = this_week_from + timedelta(days=7)
+        next_week_to = next_week_from + timedelta(days=6)
+        next_month_from = _first_day_of_next_month(today)
+        next_month_to = _first_day_of_next_month(next_month_from) - timedelta(days=1)
+        upcoming_days = [today + timedelta(days=n) for n in range(1, UPCOMING_DAYS_LISTED + 1)]
+        upcoming = ", ".join(f"{day.strftime('%a')} {_iso(day)}" for day in upcoming_days)
+
         # The default window is its own line, so changing the rule touches one
         # place and the prompt never has to restate it.
         default_from, default_to = last_30_from, today
@@ -81,5 +99,10 @@ class CalendarBlockRenderer:
             f"- last 30 days: {_span(last_30_from, today)}\n"
             f"- this year: {_span(this_year_from, today)}\n"
             f"- default window when no period is named: {_span(default_from, default_to)}\n"
-            '- "all time": call without dates'
+            '- "all time": call without dates\n'
+            "Upcoming days, for deadlines:\n"
+            f"- tomorrow: {_iso(tomorrow)}\n"
+            f"- next week (Mon–Sun): {_span(next_week_from, next_week_to)}\n"
+            f"- next month: {_span(next_month_from, next_month_to)}\n"
+            f"- the next {UPCOMING_DAYS_LISTED} days: {upcoming}"
         )

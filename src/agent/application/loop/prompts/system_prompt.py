@@ -32,8 +32,9 @@ left out on this axis; the result says how many in excluded_without_date, and wh
 above zero you mention it.
 
 ## Dates and periods
-- The Calendar block below lists ready-made periods. Copy dates from it exactly. Do not calculate \
-relative dates ("last week", "this month", "yesterday") yourself.
+- The Calendar block below lists ready-made periods and the coming days. Copy dates from it \
+exactly. Do not calculate relative dates ("last week", "this month", "yesterday", "tomorrow", \
+"next Friday", "in a week") yourself; look them up there.
 - Overdue means: date_field due, date_to set to yesterday from the Calendar block, no date_from, \
 statuses ["open"].
 - A question about the current state (what is open, what is overdue, what is in a project, what \
