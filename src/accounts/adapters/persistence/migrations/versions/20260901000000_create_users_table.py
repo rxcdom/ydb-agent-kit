@@ -31,9 +31,9 @@ class CreateUsersTableMigration(Migration):
             await pool.execute_with_retries(
                 """
                 CREATE TABLE IF NOT EXISTS users (
-                    user_id      Utf8,
+                    user_id      Utf8 NOT NULL,
                     display_name Utf8?,
-                    created_at   Timestamp,
+                    created_at   Timestamp NOT NULL,
                     PRIMARY KEY (user_id)
                 );
                 """
