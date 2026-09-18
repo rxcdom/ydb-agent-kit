@@ -1,0 +1,70 @@
+name: ydb-agent-kit
+
+services:
+  ydb:
+    image: ydbplatform/local-ydb:latest
+    platform: linux/amd64
+    hostname: ydb
+    ports:
+      - "${YDB_GRPC_HOST_PORT:-2136}:2136"
+      - "${YDB_MON_HOST_PORT:-8765}:8765"
+    environment:
+      GRPC_PORT: 2136
+      MON_PORT: 8765
+      YDB_USE_IN_MEMORY_PDISKS: "true"
+    volumes:
+      - ydb_data:/ydb_data
+    healthcheck:
+      # Process-level check only. Query readiness (storage pools included) is
+      # probed by scripts/wait_for_ydb.py before migrations run.
+      test: ["CMD-SHELL", "pgrep -f ydbd > /dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  app:
+    build: .
+    env_file: .env
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    depends_on:
+      ydb:
+        condition: service_healthy
+    command: >
+      sh -c "python scripts/wait_for_ydb.py
+      && python -m src.shared.infrastructure.database.migration.cli up
+      && uvicorn src.gateway.api.main:app --host 0.0.0.0 --port 8000"
+
+  # One-off tools: `docker compose run --rm <service> [arguments]`.
+  seed:
+    profiles: ["tools"]
+    build: .
+    env_file: .env
+    depends_on:
+      ydb:
+        condition: service_healthy
+    entrypoint: ["python", "-m", "src.gateway.cli", "seed"]
+
+  migrate:
+    profiles: ["tools"]
+    build: .
+    env_file: .env
+    depends_on:
+      ydb:
+        condition: service_healthy
+    entrypoint: ["python", "-m", "src.shared.infrastructure.database.migration.cli"]
+    command: ["status"]
+
+  tests:
+    profiles: ["tools"]
+    build: .
+    env_file: .env
+    depends_on:
+      ydb:
+        condition: service_healthy
+    entrypoint: ["python", "-m", "pytest"]
+    command: ["tests/integration", "-m", "integration"]
+
+volumes:
+  ydb_data:

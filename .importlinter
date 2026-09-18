@@ -1,0 +1,131 @@
+[importlinter]
+root_package = src
+include_external_packages = True
+
+# Inside every module the dependency direction is adapters -> application -> ports -> domain.
+[importlinter:contract:module-layers]
+name = Hexagonal layers inside each module
+type = layers
+layers =
+    adapters
+    application
+    ports
+    domain
+containers =
+    src.accounts
+    src.tasks
+    src.agent
+
+[importlinter:contract:domain-independence]
+name = Module domains do not know each other
+type = independence
+modules =
+    src.accounts.domain
+    src.tasks.domain
+    src.agent.domain
+
+[importlinter:contract:shared-kernel-direction]
+name = The shared kernel depends on nothing above it
+type = forbidden
+source_modules =
+    src.shared
+forbidden_modules =
+    src.accounts
+    src.tasks
+    src.agent
+    src.gateway
+
+[importlinter:contract:shared-domain-purity]
+name = Shared domain does not import shared infrastructure
+type = forbidden
+source_modules =
+    src.shared.domain
+forbidden_modules =
+    src.shared.infrastructure
+
+[importlinter:contract:gateway-is-the-root]
+name = No module imports the composition root
+type = forbidden
+source_modules =
+    src.accounts
+    src.tasks
+    src.agent
+forbidden_modules =
+    src.gateway
+
+# Sanctioned edge 1: the agent reaches the tasks module only through the adapter
+# that implements its TaskDataProvider port on top of the tasks use cases.
+[importlinter:contract:agent-to-tasks-seam]
+name = The agent reaches tasks only through the provider adapter
+type = forbidden
+source_modules =
+    src.agent
+forbidden_modules =
+    src.tasks
+unmatched_ignore_imports_alerting = warn
+ignore_imports =
+    src.agent.adapters.providers.task_data_provider_adapter -> src.tasks.application.**
+    src.agent.adapters.providers.task_data_provider_adapter -> src.tasks.domain.**
+
+# Sanctioned edge 2: HTTP routers of other modules authenticate through the
+# bearer dependency owned by the accounts module.
+[importlinter:contract:accounts-seam]
+name = Other modules touch accounts only through the bearer dependency
+type = forbidden
+source_modules =
+    src.tasks
+    src.agent
+forbidden_modules =
+    src.accounts
+unmatched_ignore_imports_alerting = warn
+ignore_imports =
+    src.tasks.adapters.api.router -> src.accounts.adapters.api.auth
+    src.agent.adapters.api.router -> src.accounts.adapters.api.auth
+
+[importlinter:contract:nothing-depends-on-agent]
+name = Tasks and accounts do not import the agent
+type = forbidden
+source_modules =
+    src.tasks
+    src.accounts
+forbidden_modules =
+    src.agent
+
+[importlinter:contract:accounts-isolated]
+name = Accounts does not import tasks
+type = forbidden
+source_modules =
+    src.accounts
+forbidden_modules =
+    src.tasks
+
+[importlinter:contract:domain-is-framework-free]
+name = Domain layers import no I/O or framework library
+type = forbidden
+source_modules =
+    src.shared.domain
+    src.accounts.domain
+    src.tasks.domain
+    src.agent.domain
+forbidden_modules =
+    ydb
+    pydantic
+    fastapi
+    yandex_ai_studio_sdk
+    dependency_injector
+
+[importlinter:contract:ports-and-application-are-io-free]
+name = Ports and application layers import no I/O library
+type = forbidden
+source_modules =
+    src.accounts.ports
+    src.tasks.ports
+    src.agent.ports
+    src.accounts.application
+    src.tasks.application
+    src.agent.application
+forbidden_modules =
+    ydb
+    fastapi
+    yandex_ai_studio_sdk
+    dependency_injector

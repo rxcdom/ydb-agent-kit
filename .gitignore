@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.import_linter_cache/
+acceptance-report.json
+.sanitisation-denylist
