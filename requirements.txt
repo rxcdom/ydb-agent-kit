@@ -12,6 +12,7 @@ yandex-ai-studio-sdk>=0.19.2,<0.20.0
 # Validation, configuration, wiring
 pydantic>=2.7.0
 python-dotenv>=1.0.0
+tzdata>=2024.1
 dependency-injector>=4.48.0
 
 # Testing and boundary enforcement
