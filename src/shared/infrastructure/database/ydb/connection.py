@@ -89,6 +89,7 @@ async def open_ydb_connection(
             endpoint=settings.endpoint,
             database=settings.database,
             credentials=ydb.AnonymousCredentials(),
+            disable_discovery=settings.disable_discovery,
         )
     )
     try:

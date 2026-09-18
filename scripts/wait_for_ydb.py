@@ -15,6 +15,7 @@ ENDPOINT = os.getenv("YDB_ENDPOINT", "grpc://ydb:2136")
 DATABASE = os.getenv("YDB_DATABASE", "/local")
 MAX_ATTEMPTS = int(os.getenv("YDB_WAIT_MAX_ATTEMPTS", "60"))
 RETRY_INTERVAL_SECONDS = float(os.getenv("YDB_WAIT_RETRY_INTERVAL_SECONDS", "2"))
+DISABLE_DISCOVERY = os.getenv("YDB_DISABLE_DISCOVERY", "").strip().lower() in {"1", "true", "yes", "on"}
 DRIVER_WAIT_TIMEOUT_SECONDS = 5
 
 
@@ -34,6 +35,7 @@ async def wait_for_ydb() -> int:
             endpoint=ENDPOINT,
             database=DATABASE,
             credentials=ydb.AnonymousCredentials(),
+            disable_discovery=DISABLE_DISCOVERY,
         )
     )
     try:

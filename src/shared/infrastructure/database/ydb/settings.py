@@ -23,6 +23,10 @@ class YDBSettings:
     connect_timeout_seconds: float = DEFAULT_CONNECT_TIMEOUT_SECONDS
     connect_retry_delay_seconds: float = DEFAULT_CONNECT_RETRY_DELAY_SECONDS
     pool_size: int = DEFAULT_POOL_SIZE
+    # Endpoint discovery returns the node's own host name. A client outside the
+    # container network cannot resolve it, so it talks to the published port
+    # directly instead. Safe for a single-node database only.
+    disable_discovery: bool = False
 
     def __post_init__(self) -> None:
         if not self.endpoint.startswith(_ENDPOINT_SCHEMES):
@@ -54,6 +58,7 @@ class YDBSettings:
             connect_timeout_seconds=_read_float(
                 env, "YDB_CONNECT_TIMEOUT_SECONDS", DEFAULT_CONNECT_TIMEOUT_SECONDS
             ),
+            disable_discovery=_read_bool(env, "YDB_DISABLE_DISCOVERY", False),
         )
 
 
@@ -75,3 +80,18 @@ def _read_float(env: Mapping[str, str], name: str, default: float) -> float:
         return float(raw)
     except ValueError as error:
         raise ValueError(f"{name} must be a number, got {raw!r}") from error
+
+
+_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
+
+
+def _read_bool(env: Mapping[str, str], name: str, default: bool) -> bool:
+    raw = env.get(name, "").strip().lower()
+    if not raw:
+        return default
+    if raw in _TRUE_VALUES:
+        return True
+    if raw in _FALSE_VALUES:
+        return False
+    raise ValueError(f"{name} must be true or false, got {raw!r}")

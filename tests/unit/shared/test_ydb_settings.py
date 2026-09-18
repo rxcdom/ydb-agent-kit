@@ -10,6 +10,7 @@ def test_defaults_target_the_compose_network():
     assert settings.database == "/local"
     assert settings.connect_attempts == 12
     assert settings.connect_timeout_seconds == 5.0
+    assert settings.disable_discovery is False
 
 
 def test_values_are_read_from_the_environment():
@@ -35,8 +36,13 @@ def test_values_are_read_from_the_environment():
         ({"YDB_CONNECT_ATTEMPTS": "0"}, "at least 1"),
         ({"YDB_CONNECT_ATTEMPTS": "many"}, "must be an integer"),
         ({"YDB_CONNECT_TIMEOUT_SECONDS": "-1"}, "must be positive"),
+        ({"YDB_DISABLE_DISCOVERY": "maybe"}, "must be true or false"),
     ],
 )
 def test_invalid_values_are_rejected_at_startup(environ, message):
     with pytest.raises(ValueError, match=message):
         YDBSettings.from_env(environ)
+
+
+def test_discovery_can_be_disabled_for_host_side_clients():
+    assert YDBSettings.from_env({"YDB_DISABLE_DISCOVERY": "true"}).disable_discovery is True
