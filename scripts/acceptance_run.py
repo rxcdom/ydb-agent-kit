@@ -143,9 +143,8 @@ def _plain(text: str) -> str:
 
 def _mentions(reply: str, *fragments: str) -> List[str]:
     plain_reply = _plain(reply)
-    return [
-        f"the reply does not mention '{item}'" for item in fragments if _plain(item) not in plain_reply
-    ]
+    missing = [item for item in fragments if _plain(item) not in plain_reply]
+    return [f"the reply does not mention '{item}'" for item in missing]
 
 
 def _changed(call: ToolCall) -> Dict[str, Any]:
@@ -219,7 +218,9 @@ def check_follow_up_reuses_window(record: TurnRecord, calendar: Calendar) -> Lis
 def check_nothing_matched(record: TurnRecord, calendar: Calendar) -> List[str]:
     gaps = _no_writes(record)
     queries = [
-        call for call in _calls(record, "query_tasks") if "tax" in (call.arguments.get("text") or "").lower()
+        call
+        for call in _calls(record, "query_tasks")
+        if "tax" in (call.arguments.get("text") or "").lower()
     ]
     if not queries:
         return gaps + ["no text search for the topic"]
@@ -368,7 +369,7 @@ def check_forget_and_overdue(record: TurnRecord, calendar: Calendar) -> List[str
 TURNS: List[Turn] = [
     Turn(
         "Hey! What am I working on at the moment?",
-        "Reads open tasks (or the project overview) without a period and without changing anything.",
+        "Reads open tasks (or the project overview) without a period, changing nothing.",
         check_open_question,
     ),
     Turn(
@@ -385,7 +386,7 @@ TURNS: List[Turn] = [
     ),
     Turn(
         "And how much of that was for the garden?",
-        "Names no period: reuses last month and the completion axis, narrowed to the Garden project.",
+        "Names no period: reuses last month and the completion axis, narrowed to Garden.",
         check_follow_up_reuses_window,
     ),
     Turn(
@@ -441,7 +442,8 @@ TURNS: List[Turn] = [
         check_recall,
     ),
     Turn(
-        "Forget the Friday thing, my schedule changed. And is anything overdue now, across everything?",
+        "Forget the Friday thing, my schedule changed. "
+        "And is anything overdue now, across everything?",
         "Deletes the note; reads overdue across all projects.",
         check_forget_and_overdue,
     ),
@@ -467,7 +469,9 @@ class Api:
         return token
 
     def create_chat(self) -> str:
-        response = self._http.post("/api/v1/chats", json={"title": "Acceptance run"}, headers=self._headers)
+        response = self._http.post(
+            "/api/v1/chats", json={"title": "Acceptance run"}, headers=self._headers
+        )
         response.raise_for_status()
         return response.json()["chat_id"]
 
@@ -527,8 +531,9 @@ def verify_state(api: Api, calendar: Calendar, tz: ZoneInfo) -> List[str]:
         gaps.append(f"created task: expected one 'plumber' task, found {len(plumber)}")
     else:
         task = plumber[0]
-        if projects.get(task["project_id"]) != "Home renovation" or task["priority"] != "high":
-            gaps.append(f"created task has project/priority {projects.get(task['project_id'])}/{task['priority']}")
+        project_name = projects.get(task["project_id"])
+        if project_name != "Home renovation" or task["priority"] != "high":
+            gaps.append(f"created task has project/priority {project_name}/{task['priority']}")
         if local_day(task["due_at"]) != calendar.tomorrow.isoformat():
             gaps.append(f"created task is due {task['due_at']}")
 
@@ -539,7 +544,9 @@ def verify_state(api: Api, calendar: Calendar, tz: ZoneInfo) -> List[str]:
         local_day(dentist[0]["due_at"]) != calendar.in_a_week.isoformat()
         or dentist[0]["priority"] != "high"
     ):
-        gaps.append(f"updated task is due {dentist[0]['due_at']} with priority {dentist[0]['priority']}")
+        gaps.append(
+            f"updated task is due {dentist[0]['due_at']} with priority {dentist[0]['priority']}"
+        )
 
     tiles = _by_title(tasks, "kitchen tiles")
     if len(tiles) != 1:
@@ -587,7 +594,8 @@ def run(args: argparse.Namespace) -> int:
         print(f"     > {turn.message}")
         print(f"     < {record.reply[:400]}")
         for call in record.calls:
-            print(f"     * {call.name}({json.dumps(call.arguments)}) -> {call.status or call.result}")
+            outcome = call.status or call.result
+            print(f"     * {call.name}({json.dumps(call.arguments)}) -> {outcome}")
 
     state_gaps = verify_state(api, calendar, tz)
     print("STATE " + ("pass" if not state_gaps else "; ".join(state_gaps)))
@@ -602,7 +610,12 @@ def run(args: argparse.Namespace) -> int:
                 "expected": record.expectation,
                 "reply": record.reply,
                 "tool_calls": [
-                    {"name": call.name, "arguments": call.arguments, "outcome": call.status, "result": call.result}
+                    {
+                        "name": call.name,
+                        "arguments": call.arguments,
+                        "outcome": call.status,
+                        "result": call.result,
+                    }
                     for call in record.calls
                 ],
                 "verdict": record.verdict,
@@ -614,12 +627,15 @@ def run(args: argparse.Namespace) -> int:
     Path(args.report).write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     failed = [record.number for record in records if record.gaps]
-    print(f"{len(records) - len(failed)}/{len(records)} turns passed; report written to {args.report}")
+    passed = len(records) - len(failed)
+    print(f"{passed}/{len(records)} turns passed; report written to {args.report}")
     return 0 if not failed and not state_gaps else 1
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawTextHelpFormatter
+    )
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--timezone", default="UTC", help="must equal the server's AGENT_TIMEZONE")
     parser.add_argument("--seed-command", default=DEFAULT_SEED_COMMAND)

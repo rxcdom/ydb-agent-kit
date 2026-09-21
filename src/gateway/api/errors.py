@@ -50,7 +50,9 @@ def _llm_failure_response(error: LLMServiceError) -> JSONResponse:
         cause = error.__cause__ or error
 
     if isinstance(cause, LLMServiceAuthenticationError):
-        return JSONResponse(_body("llm_misconfigured", **extra), status.HTTP_503_SERVICE_UNAVAILABLE)
+        return JSONResponse(
+            _body("llm_misconfigured", **extra), status.HTTP_503_SERVICE_UNAVAILABLE
+        )
     if isinstance(cause, LLMServiceTimeoutError):
         return JSONResponse(_body("llm_timeout", **extra), status.HTTP_504_GATEWAY_TIMEOUT)
     return JSONResponse(_body("llm_unavailable", **extra), status.HTTP_503_SERVICE_UNAVAILABLE)

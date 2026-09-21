@@ -231,7 +231,9 @@ async def test_task_listing_filters_and_paginates(client):
     late = await new_task(
         client, token, title="Late", due_at=(today - timedelta(days=3)).isoformat()
     )
-    await client.patch(f"{API}/tasks/{late['task_id']}", json={"status": "cancelled"}, headers=headers)
+    await client.patch(
+        f"{API}/tasks/{late['task_id']}", json={"status": "cancelled"}, headers=headers
+    )
 
     everything = await client.get(f"{API}/tasks", headers=headers)
     by_project = await client.get(
@@ -310,7 +312,9 @@ async def test_one_owner_cannot_read_or_modify_another_owners_data(client, llm, 
         headers=bearer(mallory),
     )
     posted = await client.post(
-        f"{API}/chats/{chat['chat_id']}/messages", json={"content": "hello"}, headers=bearer(mallory)
+        f"{API}/chats/{chat['chat_id']}/messages",
+        json={"content": "hello"},
+        headers=bearer(mallory),
     )
     assert [r.status_code for r in (patched, deleted, filed, posted)] == [404, 404, 404, 404]
     assert llm.script == [], "the model must not be called for a chat of another owner"
@@ -396,7 +400,8 @@ async def test_full_agent_turn_stores_both_messages_the_trace_and_the_conversati
 
     # The next turn is told which window and project the previous one used.
     repositories = await container.agent.repository_manager()
-    state = await repositories.chat_agent_context.find_by_chat_id(ChatId.from_string(chat["chat_id"]))
+    chat_id = ChatId.from_string(chat["chat_id"])
+    state = await repositories.chat_agent_context.find_by_chat_id(chat_id)
     assert (state.last_tool, state.last_window_from, state.last_window_to) == (
         "query_tasks",
         today,

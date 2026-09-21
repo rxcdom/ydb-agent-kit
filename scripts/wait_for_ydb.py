@@ -15,7 +15,8 @@ ENDPOINT = os.getenv("YDB_ENDPOINT", "grpc://ydb:2136")
 DATABASE = os.getenv("YDB_DATABASE", "/local")
 MAX_ATTEMPTS = int(os.getenv("YDB_WAIT_MAX_ATTEMPTS", "60"))
 RETRY_INTERVAL_SECONDS = float(os.getenv("YDB_WAIT_RETRY_INTERVAL_SECONDS", "2"))
-DISABLE_DISCOVERY = os.getenv("YDB_DISABLE_DISCOVERY", "").strip().lower() in {"1", "true", "yes", "on"}
+TRUE_VALUES = {"1", "true", "yes", "on"}
+DISABLE_DISCOVERY = os.getenv("YDB_DISABLE_DISCOVERY", "").strip().lower() in TRUE_VALUES
 DRIVER_WAIT_TIMEOUT_SECONDS = 5
 
 
@@ -43,7 +44,8 @@ async def wait_for_ydb() -> int:
             try:
                 await _probe(driver)
             except (ydb.Error, TimeoutError, ConnectionError) as error:
-                print(f"  attempt {attempt}/{MAX_ATTEMPTS}: not ready ({type(error).__name__}: {error})")
+                reason = f"{type(error).__name__}: {error}"
+                print(f"  attempt {attempt}/{MAX_ATTEMPTS}: not ready ({reason})")
                 await asyncio.sleep(RETRY_INTERVAL_SECONDS)
             else:
                 print(f"YDB is ready (attempt {attempt}/{MAX_ATTEMPTS})")
