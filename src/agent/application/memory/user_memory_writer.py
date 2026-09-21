@@ -47,6 +47,7 @@ _SIMILAR_CANDIDATE_LIMIT = 5
 
 REMEMBER_CREATED = "created"
 REMEMBER_UPDATED = "updated"
+REMEMBER_UNCHANGED = "unchanged"
 REMEMBER_REJECTED = "rejected"
 
 
@@ -54,8 +55,10 @@ REMEMBER_REJECTED = "rejected"
 class RememberOutcome:
     """Result of ``remember``.
 
-    ``status`` is ``created``, ``updated`` or ``rejected``. ``reason`` is set
-    only on rejection; ``evicted`` tells that the oldest entry made room.
+    ``status`` is ``created``, ``updated``, ``unchanged`` or ``rejected``.
+    ``unchanged`` means the vault already held exactly this entry and nothing
+    was written. ``reason`` is set only on rejection; ``evicted`` tells that the
+    oldest entry made room.
     """
 
     status: str
@@ -100,6 +103,11 @@ class UserMemoryWriter:
         self._repositories = repository_manager
         self._clock = clock
 
+    @staticmethod
+    def _already_holds(existing: UserMemory, content: str, topic: Optional[str]) -> bool:
+        """Whether the entry already says exactly this; an omitted topic changes nothing."""
+        return existing.content == content and topic in (None, existing.topic)
+
     async def remember(
         self, user_id: UserId, *, content: str, topic: Optional[str] = None
     ) -> RememberOutcome:
@@ -118,6 +126,11 @@ class UserMemoryWriter:
 
         now = self._clock()
         existing = await self._find_similar(user_id, content=cleaned, topic=cleaned_topic)
+        if existing is not None and self._already_holds(existing, cleaned, cleaned_topic):
+            # Storing the same fact again is not a write: the entry keeps its place
+            # among the freshest ones, and the caller learns that nothing changed.
+            logger.info("Memory entry unchanged: memory_id=%s", existing.memory_id)
+            return RememberOutcome(status=REMEMBER_UNCHANGED, memory_id=existing.memory_id)
         if existing is not None:
             existing.content = cleaned
             if cleaned_topic is not None:

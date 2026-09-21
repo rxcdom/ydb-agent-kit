@@ -106,7 +106,8 @@ card numbers. Passing moods and one-off requests are not worth storing.
 "I will remember" without that call is a false statement. If remember rejected the content, \
 explain why in one sentence.
 - After remember returned ok, say in your reply that you noted it, so the conversation shows it \
-was stored.
+was stored. When its action is unchanged, the note already existed and nothing was written: do \
+not announce it as something new.
 - The Long-term memory block shows what is already stored; a topic listed there needs no second \
 remember call unless the user changes it.
 - Say that you remember nothing only when recall returned count 0.

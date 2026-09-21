@@ -120,6 +120,34 @@ async def test_remember_updates_on_word_overlap_without_a_topic(
     assert saved.topic == "plans"
 
 
+@pytest.mark.parametrize("topic", ["working days", None])
+async def test_remembering_the_same_fact_again_writes_nothing_and_says_so(
+    writer, mock_repository_manager, user_id, topic
+):
+    existing = _memory(user_id, "Never works on Fridays.", topic="working days", age_days=3)
+    mock_repository_manager.user_memory.search_by_user_id.return_value = [existing]
+
+    outcome = await writer.remember(user_id, content="  Never works on Fridays.  ", topic=topic)
+
+    assert outcome.status == "unchanged"
+    assert outcome.memory_id == existing.memory_id
+    mock_repository_manager.user_memory.save.assert_not_awaited()
+    # The entry keeps its age, so it does not jump ahead of fresher ones.
+    assert existing.updated_at == NOW - timedelta(days=3)
+
+
+async def test_the_same_fact_under_a_new_topic_is_an_update(
+    writer, mock_repository_manager, user_id
+):
+    existing = _memory(user_id, "Never works on Fridays.", topic="working days")
+    mock_repository_manager.user_memory.search_by_user_id.return_value = [existing]
+
+    outcome = await writer.remember(user_id, content="Never works on Fridays.", topic="schedule")
+
+    assert outcome.status == "updated"
+    assert mock_repository_manager.user_memory.save.await_args.args[0].topic == "schedule"
+
+
 async def test_remember_keeps_an_unrelated_entry_untouched(
     writer, mock_repository_manager, user_id
 ):

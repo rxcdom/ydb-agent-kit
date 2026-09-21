@@ -196,29 +196,33 @@ the script; without that file the check reports itself as skipped.
 
 ## Known limitations
 
-Observed with the default model (`gpt-oss-120b`, low reasoning effort) over repeated acceptance
-runs. None of them is worked around in code; the prompt states the rule and the model usually,
-not always, follows it.
+Observed with the default model (`gpt-oss-120b`, low reasoning effort) over some twenty fresh
+acceptance runs. With the final prompt four of the last six runs passed all fifteen turns; the
+other two failed as described in the first two items. None of this is worked around in code: there
+is no special case for a phrase, and replies are never rewritten. The prompt states the rule and
+the model follows it most of the time.
 
 - **A second request in one message can be dropped.** "By the way, I never work on Fridays. How
-  many tasks did I add last week?" asks for two things. In early acceptance runs the model answered
-  the question and skipped the note in two runs out of five, once while writing "I'll remember
-  that" without having stored anything. The prompt now makes memory calls come first and calls an
-  unbacked "noted" a false statement; since then the note was stored in every run (three full
-  runs and eight targeted replays). It remains a property of the model, not a guarantee, which is
+  many tasks did I add last week?" asks for two things. Before the prompt told the agent to make
+  memory calls first, the note was skipped in two runs out of five, once while the reply claimed
+  "I'll remember that". Since then it was skipped in one run out of fourteen, and the false claim
+  did not reappear. Later turns then fail honestly ("I have nothing stored about you"). This is
   why `GET /api/v1/memory` exists: what was stored is observable without asking the agent.
+- **Reply text can mis-copy a value.** In about one run out of four the reply to that same message
+  named the right days in the wrong year (2024) although the tool call and its result carried the
+  right one. The trace in `debug` and the stored data are the source of truth, not the prose.
+- **An already stored note is sometimes stored again** a few turns later, because earlier tool
+  calls are not part of the history the model sees. Storing the same fact twice writes nothing
+  (`action: unchanged`), so the vault is not affected; the call is merely redundant.
+- **The route to an ambiguity varies.** Asked about "the home project" or told to delete "the
+  report task", the agent usually sends the reference to the tool and gets the refusal with the
+  candidates; sometimes it looks the name up first and asks on its own. Both end with every
+  candidate listed and a question, and in neither case is anything picked or deleted.
 - **A loosely worded period can trigger a question instead of an answer.** "Around this time last
   year" was once answered with "which dates do you mean?". The prompt now tells the agent to pick
   the closest reasonable period and say which dates it used.
-- **The route to an ambiguity varies.** Asked about "the home project", the agent usually sends the
-  reference to the read tool and gets the refusal with both candidates; sometimes it reads the
-  project list first and asks on its own. Both end with the two candidates and a question, and in
-  neither case is a project picked.
-- **Dates are sometimes typeset with non-breaking hyphens** (`2026‑09‑21`). Replies are not
-  post-processed, so a client that parses dates out of reply text must normalise dashes.
-- **Reply text can mis-copy a value.** Once in roughly a hundred observed turns the reply named the
-  wrong year for a period although the tool call and its result were correct. The trace in `debug`
-  and the stored data are the source of truth, not the prose.
+- **Replies are typeset.** Dates come with non-breaking hyphens (`2026‑09‑21`), names with narrow
+  no-break spaces. Replies are not post-processed, so a client that parses them must normalise.
 - **Only text survives between turns.** Earlier tool results are not replayed to the model; what a
   follow-up needs (the last window, date axis and project) travels in the conversation-state block.
   A follow-up that depends on other details of an earlier result makes the agent read again.

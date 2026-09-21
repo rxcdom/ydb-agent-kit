@@ -257,7 +257,8 @@ REMEMBER_DEFINITION = _definition(
     "status ok. Never store "
     "secrets (passwords, codes, keys, card numbers); such content is rejected. A note on the "
     "same topic is updated instead of duplicated. "
-    "Result: status ok with action created or updated, or status rejected with a reason.",
+    "Result: status ok with action created, updated or unchanged (the same note was already "
+    "stored, nothing was written), or status rejected with a reason.",
     RememberArgs,
 )
 
