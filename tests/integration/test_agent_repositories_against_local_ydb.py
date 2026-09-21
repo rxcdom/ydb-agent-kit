@@ -224,7 +224,9 @@ async def test_messages_with_the_same_timestamp_page_without_gaps_or_repeats(
 ) -> None:
     messages = workspace.manager.messages
     chat = workspace.new_chat(workspace.new_user())
-    simultaneous = [_message(chat, minutes=0, content=f"Same instant {index}") for index in range(4)]
+    simultaneous = [
+        _message(chat, minutes=0, content=f"Same instant {index}") for index in range(4)
+    ]
     for message in simultaneous:
         await messages.save(message)
 

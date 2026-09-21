@@ -44,7 +44,9 @@ class YDBTransactionManager:
                 try:
                     await tx.rollback()
                 except ydb.Error as rollback_error:
-                    logger.warning("Rollback after a failed transaction did not succeed: %s", rollback_error)
+                    logger.warning(
+                        "Rollback after a failed transaction did not succeed: %s", rollback_error
+                    )
                 raise
 
         try:

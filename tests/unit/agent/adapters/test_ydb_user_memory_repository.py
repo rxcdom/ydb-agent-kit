@@ -189,7 +189,9 @@ async def test_find_oldest_orders_by_created_at_ascending():
 
 
 async def test_find_oldest_in_an_empty_vault_is_none():
-    assert await YDBUserMemoryRepository(FakePool()).find_oldest_by_user_id(UserId.generate()) is None
+    repository = YDBUserMemoryRepository(FakePool())
+
+    assert await repository.find_oldest_by_user_id(UserId.generate()) is None
 
 
 class TestUserMemoryMigration:

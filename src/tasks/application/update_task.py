@@ -51,10 +51,6 @@ class TaskChanges:
     project_id: Union[UUID, None, Unset] = UNSET
     notes: Union[str, None, Unset] = UNSET
 
-    @property
-    def is_empty(self) -> bool:
-        return all(getattr(self, field.name) is UNSET for field in fields(self))
-
 
 @dataclass(frozen=True)
 class TaskChangeRequest:

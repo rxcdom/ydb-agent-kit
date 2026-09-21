@@ -238,8 +238,9 @@ class YDBTaskRepository(YDBRepository[Task], TaskRepository):
         return await self._count(criteria.axis, conditions, params)
 
     async def count_without_axis_date(self, user_id: UserId, criteria: TaskSearchCriteria) -> int:
-        # Uses the index of the criteria's axis: rows without a value on it sit
-        # together at the start of the owner's range.
+        # Uses the index of the criteria's axis, like search. On the due axis the
+        # rows without a value sit together at the start of the owner's range; on
+        # the completed axis they are filtered out of the owner's rows.
         conditions, params = self._conditions(user_id, criteria, with_axis_date=False)
         return await self._count(criteria.axis, conditions, params)
 

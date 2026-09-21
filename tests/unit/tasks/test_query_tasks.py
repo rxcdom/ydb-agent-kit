@@ -152,6 +152,20 @@ class TestOk:
 
         assert _titles(workspace.data(outcome, "ok")) == ["Fix leaking tap", "Replace desk lamp"]
 
+    async def test_the_keys_of_both_views(self, workspace):
+        common = {"window_used", "coverage", "date_field", "total_count", "excluded_without_date"}
+
+        summary = await workspace.query.execute(OWNER, project="Garden", group_by="status")
+        listing = await workspace.query.execute(OWNER, view="list")
+
+        assert set(workspace.data(summary, "ok")) == common | {
+            "project_resolved", "status_counts", "groups"
+        }
+        assert set(workspace.data(listing, "ok")) == common | {"tasks", "truncated"}
+        assert set(workspace.data(listing, "ok")["tasks"][0]) == {
+            "title", "project", "status", "priority", "due_at", "completed_at", "created_at"
+        }
+
     async def test_without_group_by_a_summary_carries_no_groups(self, workspace):
         data = workspace.data(await workspace.query.execute(OWNER, group_by="none"), "ok")
 
