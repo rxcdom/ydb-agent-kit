@@ -248,7 +248,9 @@ DELETE_TASK_DEFINITION = _definition(
 REMEMBER_DEFINITION = _definition(
     REMEMBER,
     "Store one lasting fact or preference about the user for future conversations. Use it when "
-    "the user asks you to remember something or states a durable preference. Never store "
+    "the user asks you to remember or keep something in mind, or states a durable preference, "
+    "habit or constraint, even in passing inside a message that is mainly about something else "
+    "(then call this tool and the other tools the message needs in the same turn). Never store "
     "secrets (passwords, codes, keys, card numbers); such content is rejected. A note on the "
     "same topic is updated instead of duplicated. "
     "Result: status ok with action created or updated, or status rejected with a reason.",

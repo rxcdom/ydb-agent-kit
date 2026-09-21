@@ -8,7 +8,7 @@ logged, which lets a test assert that nothing was written at all.
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from uuid import UUID
 
 from src.shared.domain.value_objects.user_id import UserId
@@ -24,6 +24,10 @@ class InMemoryProjectRepository(ProjectRepository):
     def __init__(self, write_log: List[Tuple[str, str]]):
         self._rows: Dict[UUID, Project] = {}
         self._write_log = write_log
+
+    def snapshot(self) -> Dict[UUID, Project]:
+        """A deep copy of everything stored, for before/after comparisons."""
+        return copy.deepcopy(self._rows)
 
     async def save(self, project: Project, tx: Any = None) -> None:
         self._write_log.append(("save_project", project.name))
@@ -166,6 +170,29 @@ class InMemoryTasksRepositoryManager(TasksRepositoryManager):
     @property
     def tasks(self) -> InMemoryTaskRepository:
         return self._tasks
+
+    async def given(self, *rows: Union[Project, Task]) -> None:
+        """Store fixture rows and leave the write log empty, as if they had always been there."""
+        for row in rows:
+            if isinstance(row, Project):
+                await self._projects.save(row)
+            else:
+                await self._tasks.save(row)
+        self.write_log.clear()
+
+    def snapshot(self) -> Tuple[Dict[UUID, Project], Dict[UUID, Task]]:
+        """Every stored project and task of every owner, for before/after comparisons."""
+        return self._projects.snapshot(), self._tasks.snapshot()
+
+    def stored_ids(self) -> List[str]:
+        """Every row id and owner id in the store; none of them may reach an envelope."""
+        projects, tasks = self.snapshot()
+        rows = list(projects.values()) + list(tasks.values())
+        return sorted(
+            {str(project_id) for project_id in projects}
+            | {str(task_id) for task_id in tasks}
+            | {str(row.user_id) for row in rows}
+        )
 
     async def execute_in_transaction(
         self, operations: Sequence[TransactionalOperation]

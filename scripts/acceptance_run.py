@@ -133,9 +133,19 @@ def _is_overdue_query(call: ToolCall, calendar: Calendar) -> bool:
     )
 
 
+# Models like to typeset dates with non-breaking hyphens and similar dash characters.
+_DASHES = dict.fromkeys(map(ord, "\u2010\u2011\u2012\u2013\u2014\u2212"), "-")
+
+
+def _plain(text: str) -> str:
+    return text.translate(_DASHES).lower()
+
+
 def _mentions(reply: str, *fragments: str) -> List[str]:
-    lowered = reply.lower()
-    return [f"the reply does not mention '{item}'" for item in fragments if item.lower() not in lowered]
+    plain_reply = _plain(reply)
+    return [
+        f"the reply does not mention '{item}'" for item in fragments if _plain(item) not in plain_reply
+    ]
 
 
 def _changed(call: ToolCall) -> Dict[str, Any]:
@@ -231,13 +241,17 @@ def check_before_coverage(record: TurnRecord, calendar: Calendar) -> List[str]:
 
 
 def check_ambiguous_project(record: TurnRecord, calendar: Calendar) -> List[str]:
+    """The agent may learn about the two candidates from a refused read or from the project
+    list; what matters is that it read something, picked neither, showed both and asked."""
     gaps = _no_writes(record)
     queries = _calls(record, "query_tasks")
     ambiguous = [call for call in queries if call.status == "ambiguous_source"]
-    if not ambiguous:
-        gaps.append("the ambiguous project name was not reported as ambiguous")
-    elif not _is_overdue_query(ambiguous[-1], calendar):
-        gaps.append(f"overdue was not read as due-before-today and open: {ambiguous[-1].arguments}")
+    listed = [call for call in _calls(record, "list_projects") if call.status == "ok"]
+    if not ambiguous and not listed:
+        gaps.append("the candidates were not read from the data")
+    for call in ambiguous:
+        if not _is_overdue_query(call, calendar):
+            gaps.append(f"overdue was not read as due-before-today and open: {call.arguments}")
     picked = [call for call in queries if call.status == "ok" and call.data.get("project_resolved")]
     if picked:
         gaps.append("the agent picked a project instead of asking")
