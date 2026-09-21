@@ -86,8 +86,13 @@ If port 8000, 2136 or 8765 is taken on your machine, change `APP_PORT`, `YDB_GRP
 ```bash
 docker compose run --rm migrate status     # migration status table
 docker compose run --rm migrate up         # apply pending migrations (the app does this on start)
+docker compose down                        # stop; the data stays on the ydb_data volume
 docker compose down -v                     # stop and drop the database
 ```
+
+The database lives on the `ydb_data` volume and survives a restart of the YDB container. The YDB
+image is built for `linux/amd64`; on Apple Silicon it runs under emulation and needs about a minute
+to become healthy on first start.
 
 Interactive API documentation is served at `http://localhost:8000/docs`.
 
@@ -191,7 +196,31 @@ the script; without that file the check reports itself as skipped.
 
 ## Known limitations
 
-See the end of this section for the behaviour observed with the default model.
+Observed with the default model (`gpt-oss-120b`, low reasoning effort) over repeated acceptance
+runs. None of them is worked around in code; the prompt states the rule and the model usually,
+not always, follows it.
+
+- **A second request in one message can be dropped.** "By the way, I never work on Fridays. How
+  many tasks did I add last week?" asks for two things. Before the prompt spelled out that every
+  request in a message must be handled, the model answered the question and silently skipped the
+  note in one run out of three. With the current prompt it stored the note in every run, but this
+  is a property of the model, not a guarantee.
+- **A loosely worded period can trigger a question instead of an answer.** "Around this time last
+  year" was once answered with "which dates do you mean?". The prompt now tells the agent to pick
+  the closest reasonable period and say which dates it used.
+- **The route to an ambiguity varies.** Asked about "the home project", the agent usually sends the
+  reference to the read tool and gets the refusal with both candidates; sometimes it reads the
+  project list first and asks on its own. Both end with the two candidates and a question, and in
+  neither case is a project picked.
+- **Dates are sometimes typeset with non-breaking hyphens** (`2026‑09‑21`). Replies are not
+  post-processed, so a client that parses dates out of reply text must normalise dashes.
+- **Only text survives between turns.** Earlier tool results are not replayed to the model; what a
+  follow-up needs (the last window, date axis and project) travels in the conversation-state block.
+  A follow-up that depends on other details of an earlier result makes the agent read again.
+- **A turn that dies for a non-model reason** (a bug, or the datastore failing mid-turn) returns
+  500 or 503 and leaves the user message in status `processing`; only model failures mark it
+  `failed`.
+- **No rate limiting, no pagination of chats, no streaming.** Out of scope for the demo.
 
 ## License
 
