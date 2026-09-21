@@ -11,7 +11,10 @@ services:
     environment:
       GRPC_PORT: 2136
       MON_PORT: 8765
-      YDB_USE_IN_MEMORY_PDISKS: "true"
+      # The storage lives on the ydb_data volume and the node re-attaches to it
+      # after a restart. (In-memory disks would not survive one: the node would
+      # come back with its configuration but without storage pools.)
+      YDB_LOCAL_SURVIVE_RESTART: "true"
     volumes:
       - ydb_data:/ydb_data
     healthcheck:
