@@ -45,6 +45,12 @@ from src.tasks.ports.task_repository import TaskSearchCriteria
 # Rows a list view returns at most; the envelope says when more exist.
 LIST_VIEW_CAP = 50
 
+# A summary carries counts only. Saying so inside the result keeps the reader from
+# naming tasks it has not been given.
+SUMMARY_VIEW_NOTE = (
+    'Counts only: this result names no tasks. To name or list tasks, call again with view "list".'
+)
+
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
 
@@ -211,7 +217,10 @@ class QueryTasksUseCase:
             }
         else:
             rows = await tasks.search(owner, criteria)
-            view_payload = {"status_counts": _status_counts(Counter(t.status for t in rows))}
+            view_payload = {
+                "status_counts": _status_counts(Counter(t.status for t in rows)),
+                "note": SUMMARY_VIEW_NOTE,
+            }
             if question.group_by is not GroupBy.NONE:
                 view_payload["groups"] = self._groups(rows, question, presenter)
 

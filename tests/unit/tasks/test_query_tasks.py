@@ -15,6 +15,7 @@ from src.tasks.application.query_tasks import (
     DEFAULT_PAGE_SIZE,
     LIST_VIEW_CAP,
     MAX_PAGE_SIZE,
+    SUMMARY_VIEW_NOTE,
     QueryTasksUseCase,
     TaskPage,
 )
@@ -121,6 +122,7 @@ class TestOk:
             "total_count": 9,
             "excluded_without_date": 0,
             "status_counts": {"open": 5, "done": 3, "cancelled": 1},
+            "note": SUMMARY_VIEW_NOTE,
         }
 
     async def test_window_used_is_the_named_window_and_coverage_stays_the_axis_span(
@@ -159,7 +161,7 @@ class TestOk:
         listing = await workspace.query.execute(OWNER, view="list")
 
         assert set(workspace.data(summary, "ok")) == common | {
-            "project_resolved", "status_counts", "groups"
+            "project_resolved", "status_counts", "groups", "note"
         }
         assert set(workspace.data(listing, "ok")) == common | {"tasks", "truncated"}
         assert set(workspace.data(listing, "ok")["tasks"][0]) == {
@@ -272,6 +274,7 @@ class TestOk:
         assert data["total_count"] == 4
         assert data["truncated"] is False
         assert "groups" not in data and "status_counts" not in data
+        assert "note" not in data, "a list names its tasks, so it needs no pointer to the list view"
 
     async def test_an_unfiled_task_is_listed_with_no_project(self, workspace):
         outcome = await workspace.query.execute(OWNER, text="dentist", view="list")

@@ -43,3 +43,11 @@ def test_entries_without_topics_render_no_topics_line():
     block = MemoryPointerRenderer.render(2, [None, ""])
     assert "Entries: 2." in block
     assert "Topics:" not in block
+
+
+def test_non_empty_pointer_says_that_listed_topics_are_already_stored():
+    block = MemoryPointerRenderer.render(1, ["working days"])
+
+    assert "Topics: working days." in block
+    assert "already stored" in block
+    assert "do not call remember for it again" in block

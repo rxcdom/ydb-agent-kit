@@ -63,6 +63,8 @@ class MemoryPointerRenderer:
             "This is only a table of contents. Call recall whenever an answer may "
             "depend on what you already know about the user. Do not claim the "
             "memory is empty (the counter shows it is not), and do not restate its "
-            "content without calling recall in this turn."
+            "content without calling recall in this turn. Everything listed here is "
+            "already stored: do not call remember for it again unless the user "
+            "changes it."
         )
         return "\n".join(lines)

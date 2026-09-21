@@ -173,7 +173,9 @@ def coverage_gap(gap: CoverageGap, date_field: DateAxis) -> Outcome:
     else:
         note = (
             f"The requested window lies entirely outside the days on which the "
-            f"'{date_field.value}' axis has data; see coverage."
+            f"'{date_field.value}' axis has data. That data runs from "
+            f"{gap.coverage.first.isoformat()} to {gap.coverage.last.isoformat()}; give the user "
+            "both of these days."
         )
     return Outcome(
         OutcomeStatus.COVERAGE_GAP,

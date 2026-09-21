@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shlex
 import subprocess
 import sys
@@ -34,6 +35,9 @@ import httpx
 
 READ_TOOLS = {"list_projects", "query_tasks"}
 WRITE_TOOLS = {"create_task", "update_task", "delete_task"}
+MEMORY_WRITE_TOOLS = {"remember", "forget"}
+# The only turns in which the user asks for a change of long-term memory.
+MEMORY_TURNS = {2, 15}
 REPORT_TITLES = ("Quarterly report", "Expense report", "Weekly status report")
 DEFAULT_SEED_COMMAND = "docker compose run --rm seed --token {token}"
 TURN_TIMEOUT_SECONDS = 300.0
@@ -120,6 +124,11 @@ def _no_writes(record: TurnRecord) -> List[str]:
     return [f"a read-only turn called write tools: {written}"] if written else []
 
 
+def _no_memory_writes(record: TurnRecord) -> List[str]:
+    written = sorted({call.name for call in record.calls if call.name in MEMORY_WRITE_TOOLS})
+    return [f"the turn changed long-term memory unasked: {written}"] if written else []
+
+
 def _window_of(call: ToolCall) -> tuple[Optional[str], Optional[str]]:
     return call.arguments.get("date_from"), call.arguments.get("date_to")
 
@@ -145,6 +154,23 @@ def _mentions(reply: str, *fragments: str) -> List[str]:
     plain_reply = _plain(reply)
     missing = [item for item in fragments if _plain(item) not in plain_reply]
     return [f"the reply does not mention '{item}'" for item in missing]
+
+
+_ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+
+
+def _ungrounded_dates(record: TurnRecord, calendar: Calendar) -> List[str]:
+    """A date in the reply that no tool call, tool result or calendar entry of the turn contains
+    was typed from the model's memory, which is how a wrong year gets into an answer."""
+    known = {day.isoformat() for day in (calendar.today, calendar.yesterday, calendar.tomorrow)}
+    for call in record.calls:
+        known.update(_ISO_DATE.findall(json.dumps(call.arguments)))
+        known.update(_ISO_DATE.findall(json.dumps(call.result)))
+    stated = set(_ISO_DATE.findall(record.reply.translate(_DASHES)))
+    unknown = sorted(stated - known)
+    if not unknown:
+        return []
+    return [f"the reply states dates found nowhere in the turn's trace: {unknown}"]
 
 
 def _changed(call: ToolCall) -> Dict[str, Any]:
@@ -585,6 +611,10 @@ def run(args: argparse.Namespace) -> int:
             record.reply = body["assistant_message"]["content"]
             record.calls = _tool_calls(body["debug"])
             record.gaps = turn.check(record, calendar)
+            if number not in MEMORY_TURNS:
+                record.gaps += _no_memory_writes(record)
+            if record.calls:
+                record.gaps += _ungrounded_dates(record, calendar)
             if turn.check is check_refused_deletion:
                 still_there = sorted(task["title"] for task in _by_title(api.all_tasks(), "report"))
                 if still_there != seeded_reports:

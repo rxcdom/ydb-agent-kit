@@ -83,7 +83,7 @@ class QueryTasksArgs(ToolArgs):
     )
     view: ViewName = Field(
         default="summary",
-        description="summary returns counts; list returns the tasks themselves.",
+        description="summary returns counts only; list returns the tasks themselves.",
     )
 
 
@@ -201,7 +201,9 @@ QUERY_TASKS_DEFINITION = _definition(
     "system message; never calculate them. Omit both for all time. Overdue is: date_field due, "
     "date_to = yesterday, no date_from, statuses ['open'].\n"
     "project is the user's wording for a project; it is matched against the existing projects. "
-    "view summary returns counts (add group_by for a breakdown); view list returns the tasks.\n"
+    "view summary returns counts only and names no tasks (add group_by for a breakdown); use "
+    "view list whenever the answer has to name tasks, and never name a task that this turn's "
+    "result does not contain.\n"
     "Statuses: ok (with window_used, coverage and the data); no_data (the user has no tasks); "
     "coverage_gap (the period lies entirely outside coverage, the dates the data spans on this "
     "date_field); no_records (the period is inside coverage and empty); empty_filter (the period "
