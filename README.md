@@ -204,7 +204,7 @@ the model follows it most of the time.
 
 - **A second request in one message can be dropped.** "By the way, I never work on Fridays. How
   many tasks did I add last week?" asks for two things. Before the prompt told the agent to make
-  memory calls first, the note was skipped in two runs out of five, once while the reply claimed
+  memory calls first, the note was skipped in three runs out of six, once while the reply claimed
   "I'll remember that". Since then it was skipped in one run out of fourteen, and the false claim
   did not reappear. Later turns then fail honestly ("I have nothing stored about you"). This is
   why `GET /api/v1/memory` exists: what was stored is observable without asking the agent.
