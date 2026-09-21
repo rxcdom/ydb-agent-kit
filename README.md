@@ -201,10 +201,12 @@ runs. None of them is worked around in code; the prompt states the rule and the 
 not always, follows it.
 
 - **A second request in one message can be dropped.** "By the way, I never work on Fridays. How
-  many tasks did I add last week?" asks for two things. Before the prompt spelled out that every
-  request in a message must be handled, the model answered the question and silently skipped the
-  note in one run out of three. With the current prompt it stored the note in every run, but this
-  is a property of the model, not a guarantee.
+  many tasks did I add last week?" asks for two things. In early acceptance runs the model answered
+  the question and skipped the note in two runs out of five, once while writing "I'll remember
+  that" without having stored anything. The prompt now makes memory calls come first and calls an
+  unbacked "noted" a false statement; since then the note was stored in every run (three full
+  runs and eight targeted replays). It remains a property of the model, not a guarantee, which is
+  why `GET /api/v1/memory` exists: what was stored is observable without asking the agent.
 - **A loosely worded period can trigger a question instead of an answer.** "Around this time last
   year" was once answered with "which dates do you mean?". The prompt now tells the agent to pick
   the closest reasonable period and say which dates it used.
@@ -214,6 +216,9 @@ not always, follows it.
   neither case is a project picked.
 - **Dates are sometimes typeset with non-breaking hyphens** (`2026‑09‑21`). Replies are not
   post-processed, so a client that parses dates out of reply text must normalise dashes.
+- **Reply text can mis-copy a value.** Once in roughly a hundred observed turns the reply named the
+  wrong year for a period although the tool call and its result were correct. The trace in `debug`
+  and the stored data are the source of truth, not the prose.
 - **Only text survives between turns.** Earlier tool results are not replayed to the model; what a
   follow-up needs (the last window, date axis and project) travels in the conversation-state block.
   A follow-up that depends on other details of an earlier result makes the agent read again.
