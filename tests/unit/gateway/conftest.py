@@ -12,6 +12,8 @@ from src.accounts.ports.user_repository import UserRepository
 from src.gateway.api.main import build_container, create_app
 from src.gateway.settings import Settings
 from src.shared.domain.value_objects.user_id import UserId
+from tests.unit.gateway.fakes import InMemoryAgentRepositoryManager, ScriptedLLMClient
+from tests.unit.tasks.in_memory import InMemoryTasksRepositoryManager
 
 
 class InMemoryUserRepository(UserRepository):
@@ -38,10 +40,18 @@ class _ClosedConnection:
 
 
 @pytest.fixture
-def container():
+def llm() -> ScriptedLLMClient:
+    return ScriptedLLMClient()
+
+
+@pytest.fixture
+def container(llm: ScriptedLLMClient):
     container = build_container(Settings.from_env({}))
     container.core.ydb_connection.override(providers.Object(_ClosedConnection()))
     container.accounts.user_repository.override(providers.Object(InMemoryUserRepository()))
+    container.tasks.repository_manager.override(providers.Object(InMemoryTasksRepositoryManager()))
+    container.agent.repository_manager.override(providers.Object(InMemoryAgentRepositoryManager()))
+    container.agent.llm_client.override(providers.Object(llm))
     yield container
     container.unwire()
 
