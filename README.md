@@ -7,6 +7,60 @@ The demo domain is a task manager, and it is deliberately a placeholder. Nothing
 `src/tasks/` and the agent's tool layer knows about tasks; swap the domain and the machinery
 around it stays. What the project is really about is that machinery.
 
+**What you need to run it.** Docker with Compose, and — for the chat endpoints only — a Yandex
+Cloud folder id and a Yandex AI Studio API key. Everything else runs with no account at all: the
+database, the migrations, the REST API and the entire test suite. Python 3.12 if you want to run
+the suites outside Docker.
+
+## Background: YDB, Yandex Cloud and AI Studio
+
+This project targets two Yandex technologies that are less documented in English than their AWS or
+GCP counterparts. Neither is prior knowledge you need in order to read the code, but knowing what
+they are explains why the project is shaped the way it is.
+
+### YDB
+
+YDB is an open-source distributed SQL database, developed at Yandex and published under Apache-2.0
+as `ydb-platform/ydb`. It is built for horizontal scale with strong consistency: tables are sharded
+automatically by primary-key range across nodes, transactions are ACID across shards, and queries
+are written in YQL, a SQL dialect. Tables are row-oriented by default, with column-oriented tables
+available for analytics. It runs either as a managed service in Yandex Cloud or — as here — as a
+single-node container for local development.
+
+Three properties of YDB shaped this codebase directly:
+
+- **There is no mature ORM.** Nothing equivalent to SQLAlchemy plus Alembic exists for YDB. That is
+  why this project carries its own data-access layer (typed mappers, a generic repository, a
+  transaction manager) and its own migration framework with live artifact verification. Those two
+  components are worth showing precisely because the ecosystem does not supply them.
+- **A secondary index is a separate synchronised table, and the query must name it.**
+  `SELECT ... FROM tasks WHERE user_id = $u` consults no index and scans; `FROM tasks VIEW
+  idx_tasks_user_created` uses one. A repository that omits the `VIEW` clause is silently slow
+  rather than visibly wrong, which is why every indexed query here names its index and a unit test
+  asserts the rendered YQL.
+- **The primary key is the physical layout.** Rows are ordered and sharded by it, so a lookup by
+  primary key is the cheapest read available. The credential mechanism described below exploits
+  that on purpose.
+
+### Yandex Cloud and AI Studio
+
+Yandex Cloud is a public cloud platform — compute, storage, managed databases, ML services —
+structured much like AWS or GCP. Resources live in a *folder*, the unit of grouping and access
+control, roughly equivalent to a GCP project. A folder's identifier is the `YC_FOLDER_ID` this
+project asks for.
+
+Yandex AI Studio is that cloud's LLM inference service and the only external service this project
+calls at runtime. It serves both Yandex's own models and third-party open-weights models; the
+registry in `src/agent/adapters/llm/model_profiles.py` declares `gpt-oss-120b`,
+`deepseek-v4-flash` and `yandexgpt-5-lite`. Models are addressed by URI as
+`gpt://<folder-id>/<model>/<variant>`, and a request authenticates with either a long-lived API key
+(`YC_API_KEY`) or a short-lived IAM token (`YC_IAM_TOKEN`). The client library is
+`yandex-ai-studio-sdk`.
+
+None of this reaches the application. The provider sits behind an `LLMClient` port, and the model
+capability registry keeps every model-specific wire parameter in a single module, so supporting a
+different provider means writing one adapter and adding profiles — no call site changes.
+
 ## What it demonstrates
 
 | # | Capability | Where |
@@ -108,6 +162,14 @@ Interactive API documentation is served at `http://localhost:8000/docs`.
                  +-----------+------------+--> shared.infrastructure  (YDB access, migrations; adapters only)
 ```
 
+| Module | Responsibility |
+|---|---|
+| `shared` | The kernel: `UserId`, base error types, the YDB access layer, the migration framework. Imports no other module. |
+| `accounts` | One user entity, creation, and the bearer dependency every other router authenticates through. |
+| `tasks` | The demo domain: projects, tasks, reference resolution, date windows, the outcome envelopes. |
+| `agent` | Chats, messages, long-term memory, the tool loop, the tool registry, the LLM adapter. |
+| `gateway` | Composition root only: settings, the DI container, the FastAPI app, the HTTP error mapping, the CLI. |
+
 Every module has the same four layers, and the dependency direction is one way:
 
 ```
@@ -160,7 +222,7 @@ for the full list. The ones you are likely to touch:
 ## Tests
 
 ```bash
-python -m venv .venv && .venv/bin/pip install -r requirements.txt
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 # unit, architecture and sanitisation suites: no Docker, no network
 .venv/bin/python -m pytest tests/unit tests/architecture tests/sanitisation
@@ -196,11 +258,24 @@ the script; without that file the check reports itself as skipped.
 
 ## Known limitations
 
-Observed with the default model (`gpt-oss-120b`, low reasoning effort) over some twenty fresh
-acceptance runs. With the final prompt four of the last six runs passed all fifteen turns; the
-other two failed as described in the first two items. None of this is worked around in code: there
-is no special case for a phrase, and replies are never rewritten. The prompt states the rule and
-the model follows it most of the time.
+Everything in this section is a property of the **model used for testing**, not of the
+architecture. All of it was observed with `gpt-oss-120b` at **low** reasoning effort: a small
+open-weights model running at its cheapest setting. That is the default here because it makes the
+project inexpensive to try, not because it is the strongest option — it is the weakest
+configuration the registry offers.
+
+Every failure below is a failure of instruction-following. In each case the tool call and the
+stored data were correct; the defect was in the model's prose, or in its decision to skip a step it
+had been told to take. The machinery underneath behaved as specified throughout.
+
+Over some twenty fresh acceptance runs with the final prompt, four of the last six passed all
+fifteen turns; the other two failed as described in the first two items.
+
+None of it is worked around in code. There is no special case for a phrase and no reply is ever
+rewritten: the prompt states the rule, and the model follows it most of the time. Raising reasoning
+effort to medium on the same model was tried twice and did not help, which points at model capacity
+rather than at the setting. A larger model was not tested. If you run this with one, expect these
+items to change — `LLM_MODEL_NAME` is the only thing you need to touch.
 
 - **A second request in one message can be dropped.** "By the way, I never work on Fridays. How
   many tasks did I add last week?" asks for two things. Before the prompt told the agent to make
@@ -223,13 +298,19 @@ the model follows it most of the time.
   the closest reasonable period and say which dates it used.
 - **Replies are typeset.** Dates come with non-breaking hyphens (`2026‑09‑21`), names with narrow
   no-break spaces. Replies are not post-processed, so a client that parses them must normalise.
+
+### Not model behaviour
+
+These three are properties of the code, listed here so the section is complete.
+
 - **Only text survives between turns.** Earlier tool results are not replayed to the model; what a
-  follow-up needs (the last window, date axis and project) travels in the conversation-state block.
-  A follow-up that depends on other details of an earlier result makes the agent read again.
-- **A turn that dies for a non-model reason** (a bug, or the datastore failing mid-turn) returns
-  500 or 503 and leaves the user message in status `processing`; only model failures mark it
-  `failed`.
-- **No rate limiting, no pagination of chats, no streaming.** Out of scope for the demo.
+  follow-up needs — the last window, date axis and project — travels in the conversation-state
+  block. A follow-up depending on some other detail of an earlier result makes the agent read
+  again. This is a deliberate trade: the alternative is an unbounded history.
+- **A turn that dies for a non-model reason** (a defect, or the datastore failing mid-turn) returns
+  500 or 503 and leaves the user message in status `processing`. Only model failures mark it
+  `failed`. The recovery path for that case is not implemented.
+- **No rate limiting, no pagination of chats, no streaming.** Out of scope.
 
 ## License
 
