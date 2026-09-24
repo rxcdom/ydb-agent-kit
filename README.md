@@ -77,9 +77,12 @@ different provider means writing one adapter and adding profiles — no call sit
 
 Three ideas carry most of the agent's reliability:
 
-- **The model never computes a date.** Every turn gets a calendar block with ready-made periods
-  ("last week", "last month") and the coming days. "What is overdue" is answerable only by
-  comparing deadlines with a *today* the model was handed.
+- **The agent's context is rebuilt from what it did, not from what it said.** After each turn the
+  loop's own tool-call trace is mined for the last read that succeeded: its window, date axis and
+  project are stored, and the next turn opens with them as a `## Conversation state` block. That is
+  why "and how much of that was for the garden?" reuses the previous month without replaying a
+  single earlier tool result into the context. A read that failed never overwrites the state a good
+  one left behind.
 - **Tools report the limits of their data.** A read does not just return rows or nothing: it says
   whether the period lies outside the data (`coverage_gap`), inside it but empty (`no_records`), or
   whether a filter matched nothing (`empty_filter`), and it always carries the covered range.
